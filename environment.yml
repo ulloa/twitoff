@@ -1,0 +1,11 @@
+name: sprint-challenge
+channels:
+  - pytorch
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.10
+  - flask=*
+  - jinja2=*
+  - flask-sqlalchemy=*
+  
