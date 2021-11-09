@@ -1,5 +1,6 @@
 from flask import Flask, render_template
 from .models import DB, User, Tweet
+from .twitter import add_or_update_user, get_all_usernames
 
 
 def create_app():
@@ -21,6 +22,14 @@ def create_app():
         # what I want to happen when somebody goes to the home page
         return render_template("base.html", title="Home", users=users)
 
+    @app.route("/update")
+    def update():
+        """update all users"""
+        usernames = get_all_usernames()
+        for username in usernames:
+            add_or_update_user(username)
+        return "updated"
+
     @app.route("/populate")
     def populate():
         # find a way to auto increment
@@ -34,7 +43,10 @@ def create_app():
         DB.session.add(tweet2)
 
         DB.session.commit()
-        return "populate"
+        return """Created some users. 
+        <a href='/'>Go to Home</a>
+        <a href='/reset'>Go to reset</a>
+        <a href='/populate'>Go to populate</a>"""
 
     @app.route("/reset")
     def reset():
@@ -42,6 +54,9 @@ def create_app():
         DB.drop_all()
         # creates the database file initially
         DB.create_all()
-        return "reset"
+        return """The database has been reset. 
+        <a href='/'>Go to Home</a>
+        <a href='/reset'>Go to reset</a>
+        <a href='/populate'>Go to populate</a>"""
 
     return app
