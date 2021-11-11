@@ -1,6 +1,7 @@
-from flask import Flask, render_template
+from flask import Flask, render_template, request
 from .models import DB, User, Tweet
 from .twitter import add_or_update_user, get_all_usernames
+from .predict import predict_user
 
 
 def create_app():
@@ -30,33 +31,56 @@ def create_app():
             add_or_update_user(username)
         return "updated"
 
-    @app.route("/populate")
-    def populate():
-        # find a way to auto increment
-        ryan = User(id=1, username="Ryan")
-        DB.session.add(ryan)
-        julian = User(id=2, username="Julian")
-        DB.session.add(julian)
-        tweet1 = Tweet(id=1, text="tweet text", user=ryan)
-        DB.session.add(tweet1)
-        tweet2 = Tweet(id=2, text="julian's tweet", user=julian)
-        DB.session.add(tweet2)
-
-        DB.session.commit()
-        return """Created some users. 
-        <a href='/'>Go to Home</a>
-        <a href='/reset'>Go to reset</a>
-        <a href='/populate'>Go to populate</a>"""
-
     @app.route("/reset")
     def reset():
         # remove everything from the database
         DB.drop_all()
         # creates the database file initially
         DB.create_all()
-        return """The database has been reset. 
-        <a href='/'>Go to Home</a>
-        <a href='/reset'>Go to reset</a>
-        <a href='/populate'>Go to populate</a>"""
+        return render_template("base.html", title="Reset Database")
+
+    # API ENDPOINTS
+
+    @app.route("/user", methods=["POST"])
+    @app.route("/user/<name>", methods=["GET"])
+    def user(name=None, message=""):
+        # request.values is pulling data from the html
+        # usethe usernamefrom the URL (route)
+        # or grab it from the dropdown menu
+        name = name or request.values["user_name"]
+
+        # if the user exists in the db already, update and query it
+        try:
+            if request.method == "POST":
+                add_or_update_user(name)
+                message = f"User {name} Successfully Added!"
+
+            # from theuser that was just added /updated
+            # ge their tweets to display on the /user/<name> page
+            tweets = User.query.filter(User.username == name).one().tweets
+        except Exception as e:
+            message = f"Error adding {name}: {e}"
+
+            tweets = []
+
+        return render_template("user.html", title=name, tweets=tweets, message=message)
+
+    @app.route("/compare", methods=["POST"])
+    def compare():
+        user0, user1 = sorted([request.values["user0"], request.values["user1"]])
+
+        if user0 == user1:
+            message = "Cannot compare users to themselves!"
+
+        else:
+            prediction = predict_user(user0, user1, request.values["tweet_text"])
+            if prediction == 0:
+                predicted_user = user0
+                non_predicted_user = user1
+            else:
+                predicted_user = user1
+                non_predicted_user = user0
+            message = f"{request.values['tweet_text']} is more likely to be said by {predicted_user} than by {non_predicted_user}"
+        return render_template("prediction.html", title="Prediction", message=message)
 
     return app
